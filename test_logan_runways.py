@@ -42,6 +42,26 @@ class ParseAtis(unittest.TestCase):
     def test_weather_numbers_not_runways(self):
         self.check("BOS ATIS INFO A 0054Z. 33010KT 10SM CLR 13/M04 A3012. LDG RWY 33L.", ["33L"], [])
 
+    def test_real_broadcast_2026_10_17(self):
+        # Captured from Logan's D-ATIS: approach named without "RWY", and a spoken runway.
+        self.check("BOS ATIS INFO B 1254Z. 35015G26KT 10SM FEW033 BKN120 09/01 A3005 (THREE ZERO ZERO FIVE) "
+                   "RMK PK WND 34027/1244. RNAV Z 33L,  DEPG RY 27 AT D 2, DAV 6 THOU 6 HUN EIGHTY 8 FEET, "
+                   "RUNWAY TWO SEVEN DEPARTURE FROM DELTA TWO ONLY FOR AIRCRAFT WITH WINGSPAN LESS THAN ONE "
+                   "HUNDRED AND NINETEEN FEET. ALL OTHER AIRCRAFT EXPECT RUNWAY THREE THREE LEFT. RY 33L ILS OTS. "
+                   "READBACK ALL HOLD SHORT INSTRCNS AND ASSIGNED ALTITUDES. INCREASED BIRD ACTIVITY IN THE "
+                   "VICINITY OF LOGAN AIRPORT. NUMEROUS CRANES IN BOSTON AREA AND IN VICINITY OF LOGAN AIRPORT. "
+                   "...ADVS YOU HAVE INFO B.",
+                   ["33L"], ["27", "33L"])
+
+    def test_approach_names_without_rwy(self):
+        self.check("ILS 4R APCH IN USE. VISUAL 4L. RNAV (RNP) Y 27. DEPG RWY 9.", ["4R", "4L", "27"], ["9"])
+
+    def test_spoken_runways(self):
+        self.check("LANDING RUNWAY TWO TWO LEFT. DEPARTING RUNWAY NINER.", ["22L"], ["9"])
+
+    def test_carry_does_not_cross_unrelated_clauses(self):
+        self.check("DEPG RWY 9. CAUTION BIRDS. RWY 4R IN USE.", [], ["9"])
+
     def test_arrival_only_atis_default(self):
         self.check("BOS ARR INFO B 1154Z. 27008KT 10SM SCT050. RWY 27, RWY 22L IN USE.",
                    ["27", "22L"], [], default="arr")

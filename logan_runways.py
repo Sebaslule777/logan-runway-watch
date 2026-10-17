@@ -65,6 +65,20 @@ SKIP_PHRASES = ("CLSD", "CLOSED", "HOLD SHORT", "TWY", "TAXIWAY", "OUT OF SERVIC
 # Weak ones (approach types) only count when nothing stronger is nearby.
 WEAK_ARR = {"ILS", "LOC", "RNAV", "RNP", "VISUAL", "GPS", "VOR", "LDA", "SDF", "SIMUL"}
 
+# Approach names often skip the word runway: "RNAV Z 33L", "ILS 4R", "VISUAL 27".
+APPROACH_TYPES = {"ILS", "LOC", "RNAV", "RNP", "VISUAL", "GPS", "VOR", "LDA", "SDF"}
+
+# Runways are sometimes spoken: "RUNWAY THREE THREE LEFT" means 33L.
+NUM_WORDS = {"ZERO": "0", "ONE": "1", "TWO": "2", "THREE": "3", "FOUR": "4", "FIVE": "5",
+             "SIX": "6", "SEVEN": "7", "EIGHT": "8", "NINER": "9", "NINE": "9"}
+_NUM = "(?:" + "|".join(NUM_WORDS) + ")"
+SPOKEN_RWY = re.compile(rf"\b(RUNWAYS?|RWYS?|RYS?)\s+({_NUM}(?:\s+{_NUM})?)(?:\s+(LEFT|RIGHT|CENTER))?\b")
+
+
+def _spoken_to_digits(m):
+    digits = "".join(NUM_WORDS[w] for w in m.group(2).split())
+    return f"{m.group(1)} {digits}{(m.group(3) or '')[:1]}"
+
 
 def _keyword(token):
     if token.startswith("DEP") or token in {"TKOF", "TKOFS", "TAKEOFF", "TAKEOFFS"}:
@@ -88,30 +102,47 @@ def parse_atis(text, default=None):
     runway mentioned without any landing/departing keyword is given that use.
     """
     landing, departing = set(), set()
-    text = text.upper().replace(",", " , ")
+    text = SPOKEN_RWY.sub(_spoken_to_digits, text.upper()).replace(",", " , ")
+    carry = None  # the use announced in the previous clause, for follow-ons like "ALL OTHERS EXPECT RWY 33L"
     for clause in re.split(r"[.;](?:\s|$)", text):
         if any(p in clause for p in SKIP_PHRASES):
+            carry = None
             continue
         tokens = re.findall(r"[A-Z0-9/]+|,|&", clause)
         keywords = [(i, *kw) for i, t in enumerate(tokens) if (kw := _keyword(t))]
+        clause_use = None
 
         i = 0
         while i < len(tokens):
-            if tokens[i] not in RWY_WORDS:
+            forced = None
+            if tokens[i] in RWY_WORDS:
+                j = i + 1
+            elif tokens[i] in APPROACH_TYPES:
+                j = i + 1
+                if j < len(tokens) and re.fullmatch(r"[W-Z]", tokens[j]):
+                    j += 1  # approach letter, as in "RNAV Z 33L"
+                if not (j < len(tokens) and _norm_runway(tokens[j])):
+                    i += 1
+                    continue
+                forced = "arr"
+            else:
                 i += 1
                 continue
-            group, j = [], i + 1
+            group = []
             while j < len(tokens) and (tokens[j] in CONNECTORS or _norm_runway(tokens[j])):
                 if tokens[j] not in CONNECTORS:
                     group.append(_norm_runway(tokens[j]))
                 j += 1
             if group:
-                use = _use_for_group(keywords, i, j) or default
+                use = forced or _use_for_group(keywords, i, j)
+                clause_use = use or clause_use
+                use = use or default or carry
                 if use == "arr":
                     landing.update(group)
                 elif use == "dep":
                     departing.update(group)
             i = j
+        carry = clause_use
     return landing, departing
 
 
