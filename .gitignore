@@ -1,0 +1,4 @@
+__pycache__/
+runway_log.csv
+overhead_marks.csv
+.runway_state.json

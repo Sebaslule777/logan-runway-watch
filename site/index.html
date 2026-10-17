@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Logan Runway Watch</title>
+<meta name="description" content="Which Boston Logan runways are in use, and whether planes are over the house.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Runways">
+<meta name="theme-color" content="#E9EDF1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1117" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one phone column of cards; airport signage (yellow-on-black, black-on-yellow, red runway signs) marks runways. */
+:root {
+  --bg: #E9EDF1; --surface: #FFFFFF; --ink: #121821; --ink-2: #485462; --muted: #66717F; --line: #D2D9E1;
+  --sign-yellow: #F2BE00; --sign-black: #14171C; --sign-red: #C4161C;
+  --alert: #B4161B; --on-alert: #FFFFFF; --alert-bg: #FBE6E5;
+  --quiet: #16704A; --on-quiet: #FFFFFF; --quiet-bg: #E1F1E9;
+  --accent: #1F4FBF; --land-line: #DDA500; --dep-line: #121821; --grid: #E3E8EE;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0D1117; --surface: #161C25; --ink: #E8EDF3; --ink-2: #B3BDC9; --muted: #8B96A5; --line: #2A3340;
+  --alert: #FF6F62; --on-alert: #1C0504; --alert-bg: #36110F;
+  --quiet: #4CC38A; --on-quiet: #04170D; --quiet-bg: #0E271B;
+  --accent: #86A9FF; --land-line: #F2BE00; --dep-line: #E8EDF3; --grid: #222A35;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0D1117; --surface: #161C25; --ink: #E8EDF3; --ink-2: #B3BDC9; --muted: #8B96A5; --line: #2A3340;
+  --alert: #FF6F62; --on-alert: #1C0504; --alert-bg: #36110F;
+  --quiet: #4CC38A; --on-quiet: #04170D; --quiet-bg: #0E271B;
+  --accent: #86A9FF; --land-line: #F2BE00; --dep-line: #E8EDF3; --grid: #222A35;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: max(14px, env(safe-area-inset-top, 0px)) max(28px, env(safe-area-inset-bottom, 0px));
+}
+[hidden] { display: none !important; }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 14px; }
+@media (min-width: 820px) { .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; } .cols > .stack { display: grid; gap: 14px; } }
+@media (max-width: 819px) { .cols, .cols > .stack { display: grid; gap: 14px; } }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+h1 { font: 700 26px/1 var(--f-display); letter-spacing: .02em; text-transform: uppercase; margin: 0; }
+.atis { font: 600 13px/1 var(--f-mono); background: var(--sign-black); color: var(--sign-yellow); border: 2px solid var(--sign-yellow); border-radius: 4px; padding: 5px 7px; white-space: nowrap; }
+.updated { font: 13px/1.3 var(--f-mono); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.icon-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.hero { border-radius: 14px; padding: 18px 18px 16px; display: grid; gap: 8px; }
+.hero.alert { background: var(--alert-bg); }
+.hero.quiet { background: var(--quiet-bg); }
+.hero.none { background: var(--surface); }
+.pill { justify-self: start; font: 700 13px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px 5px; border-radius: 4px; }
+.alert .pill { background: var(--alert); color: var(--on-alert); }
+.quiet .pill { background: var(--quiet); color: var(--on-quiet); }
+.none .pill { background: var(--line); color: var(--ink); }
+.hero h2 { font: 700 clamp(34px, 9vw, 52px)/.95 var(--f-display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+.hero p { margin: 0; color: var(--ink-2); max-width: 60ch; }
+.notice { font-size: 13px; color: var(--ink-2); background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+
+.card { background: var(--surface); border-radius: 14px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card h3 { font: 700 18px/1.1 var(--f-display); letter-spacing: .06em; text-transform: uppercase; margin: 0; }
+.card .sub { font-size: 13px; color: var(--muted); margin: -6px 0 0; }
+.label { font: 600 11px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+.uses { display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 700 22px/1 var(--f-display); letter-spacing: .03em; padding: 6px 10px 5px; border-radius: 4px; min-width: 48px; text-align: center; }
+.chip.land { background: var(--sign-yellow); color: var(--sign-black); }
+.chip.dep { background: var(--sign-black); color: var(--sign-yellow); box-shadow: inset 0 0 0 2px var(--sign-yellow); }
+.chip.yours { outline: 3px solid var(--sign-red); outline-offset: 2px; }
+.chip-none { color: var(--muted); font-size: 14px; }
+
+.compass-wrap { display: grid; justify-items: center; gap: 8px; }
+.compass { width: 100%; max-width: 300px; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); justify-content: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 18px; height: 0; border-top: 4px solid; display: inline-block; }
+.sw.land { border-color: var(--land-line); } .sw.dep { border-top: 3px dashed var(--dep-line); } .sw.wind { border-color: var(--accent); }
+.wind-line { font: 14px/1.5 var(--f-mono); color: var(--ink-2); display: grid; gap: 2px; }
+.wind-line strong { color: var(--ink); font-weight: 500; }
+
+.rwy-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rwy-table th { text-align: left; font: 600 11px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 0 8px; }
+.rwy-table td { padding: 4px 0; border-top: 1px solid var(--line); }
+.rwy-table td:first-child { font: 700 20px/1 var(--f-display); width: 30%; }
+.toggle { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 12px; font-size: 13px; min-width: 104px; }
+.toggle[aria-pressed="true"] { background: var(--sign-red); border-color: var(--sign-red); color: #FFFFFF; font-weight: 600; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+
+.big-btn { border: 0; border-radius: 12px; padding: 14px 16px; background: var(--ink); color: var(--bg); font: 700 20px/1 var(--f-display); letter-spacing: .06em; text-transform: uppercase; }
+.small-btn { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 7px 12px; font-size: 13px; justify-self: start; }
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: 64px 1fr 40px; gap: 8px; align-items: center; font: 13px/1 var(--f-mono); }
+.bar-track { height: 10px; background: var(--grid); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+
+.stretches { display: grid; gap: 0; }
+.stretch { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.stretch:first-child { border-top: 0; padding-top: 0; }
+.stretch .when { font-weight: 600; }
+.stretch .len { font: 500 14px/1.4 var(--f-mono); text-align: right; }
+.stretch .setup, .stretch .night { font-size: 13px; color: var(--ink-2); grid-column: 1 / -1; }
+.stretch .night { color: var(--alert); }
+.total { font-size: 14px; padding-top: 10px; border-top: 2px solid var(--ink); }
+.massport { font-size: 13px; color: var(--ink-2); display: grid; gap: 4px; }
+.phone { font: 500 15px/1.3 var(--f-mono); color: var(--ink); user-select: all; }
+#copyText { position: absolute; left: -9999px; }
+
+.chart-box { position: relative; }
+.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { fill: var(--muted); font: 10px var(--f-mono); }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .bar { fill: var(--accent); }
+.chart .bar.dim { opacity: .35; }
+.chart .hit { fill: transparent; cursor: pointer; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font: 12px/1.35 var(--f-body); padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -100%); }
+
+details summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.atis-text { font: 12px/1.55 var(--f-mono); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; }
+footer { font-size: 12px; color: var(--muted); display: grid; gap: 4px; max-width: 70ch; }
+.empty { font-size: 14px; color: var(--muted); margin: 0; }
+@media (prefers-reduced-motion: no-preference) { .hero { transition: background-color .4s ease; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><h1>Logan Runway Watch</h1><span class="atis" id="atis" hidden></span></div>
+    <div class="updated"><span id="updated">Loading…</span><button class="icon-btn" id="refresh" type="button">Refresh</button></div>
+  </header>
+
+  <section class="hero none" id="hero" aria-live="polite">
+    <span class="pill" id="heroPill">Checking</span>
+    <h2 id="heroTitle">Reading Logan's ATIS</h2>
+    <p id="heroSub">The tower's recorded broadcast lists the runways in use.</p>
+  </section>
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="cols">
+    <div class="stack">
+      <section class="card" id="nowCard">
+        <h3>Runways in use</h3>
+        <div class="uses">
+          <span class="label">Landing</span><div class="chips" id="landChips"></div>
+          <span class="label">Departing</span><div class="chips" id="depChips"></div>
+        </div>
+        <div class="compass-wrap">
+          <svg class="compass" id="compass" viewBox="0 0 280 280" role="img" aria-label="Runway and wind diagram"></svg>
+          <div class="legend"><span><i class="sw land"></i>Landing</span><span><i class="sw dep"></i>Departing</span><span><i class="sw wind"></i>Wind</span></div>
+        </div>
+        <div class="wind-line" id="windLine"></div>
+      </section>
+
+      <section class="card">
+        <h3>Quiet hours</h3>
+        <p class="sub" id="chartSub">How often your runways were in use, by hour of day, last 14 days</p>
+        <div class="chart-box" id="chartBox"><svg class="chart" id="chart" viewBox="0 0 340 140" role="img" aria-label="Share of checks with planes overhead by hour"></svg><div class="tip" id="tip" hidden></div></div>
+        <p class="empty" id="chartEmpty" hidden>The pattern fills in as the history grows. Check back in a day or two.</p>
+      </section>
+
+    </div>
+
+    <div class="stack">
+
+      <section class="card">
+        <h3>Planes loud right now?</h3>
+        <p class="sub">Tap it each time. After a few times it shows which runway is yours.</p>
+        <button class="big-btn" id="markBtn" type="button">They're loud now</button>
+        <div class="bars" id="marks"></div>
+        <button class="small-btn" id="applyMarks" type="button" hidden></button>
+      </section>
+
+      <section class="card">
+        <h3>Loud stretches</h3>
+        <p class="sub">When your runways were in use, last 7 days</p>
+        <div class="stretches" id="stretches"></div>
+        <button class="small-btn" id="moreBtn" type="button" hidden></button>
+        <div class="total" id="total" hidden></div>
+        <button class="small-btn" id="copyBtn" type="button" hidden>Copy for a noise complaint</button>
+        <textarea id="copyText" aria-hidden="true" tabindex="-1"></textarea>
+        <div class="massport">
+          <span>Massport Noise Abatement Office takes complaints by phone or online. Give your address and these times.</span>
+          <span class="phone">(617) 561-3333</span>
+          <span>Or the noise complaint form at <a href="https://www.massport.com" target="_blank" rel="noopener">massport.com</a>, under Community, then Noise Abatement.</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Your runways</h3>
+        <p class="sub">The ones that bring planes over the house</p>
+        <table class="rwy-table"><thead><tr><th>Runway</th><th>Landing</th><th>Departing</th></tr></thead><tbody id="rwyRows"></tbody></table>
+        <p class="hint">Saved on this phone. Phone alerts use the WATCH setting in GitHub, so update it there too.</p>
+      </section>
+    </div>
+  </div>
+
+  <section class="card">
+    <details><summary>Today's ATIS broadcast, word for word</summary><p class="atis-text" id="atisText"></p></details>
+  </section>
+
+  <footer>
+    <span>Data: Logan's digital ATIS, checked about every 10 minutes. Wind is magnetic, as the tower reports it.</span>
+    <span>The tower picks runways for traffic, weather and noise rules as well as wind. In light wind it often keeps one setup for hours.</span>
+    <span>iPhone: Share, then Add to Home Screen. Android: menu, then Add to Home screen.</span>
+  </footer>
+</main>
+
+<script>
+"use strict";
+const RUNWAYS = ["4L", "4R", "9", "14", "15L", "15R", "22L", "22R", "27", "32", "33L", "33R"];
+// [low end, high end, side offset (-1 left, +1 right of the low end's heading), drawn length]
+const PHYS = [["4L", "22R", -1, 1], ["4R", "22L", 1, 1], ["9", "27", 0, .82], ["14", "32", 0, .58], ["15L", "33R", -1, .36], ["15R", "33L", 1, 1]];
+const GAP_MIN = 45;
+const DEFAULT_WATCH = ["arr:33L", "dep:33L", "arr:27", "dep:27"];
+const NAMES = { arr: "Landing", dep: "Departing" };
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+let watched = new Set(store.get("lrw.watched", DEFAULT_WATCH));
+let marks = store.get("lrw.marks", []);
+let status = null, history = [], showAll = false;
+
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const parseT = s => new Date(s.replace(/Z$/, ":00Z"));
+const split = s => (s || "").split(" ").filter(Boolean);
+const heading = r => parseInt(r, 10) * 10;
+const order = r => { const i = RUNWAYS.indexOf(r); return i < 0 ? 99 : i; };
+const sortR = a => [...a].sort((x, y) => order(x) - order(y));
+const fmtTime = d => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const fmtDay = d => d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+const fmtMin = m => { m = Math.round(m); const h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, "0")} min` : `${m} min`; };
+
+const hitsOf = e => [...e.arr.map(r => "arr:" + r), ...e.dep.map(r => "dep:" + r)].filter(s => watched.has(s));
+const describe = specs => specs.map(s => { const [u, r] = s.split(":"); return `${NAMES[u].toLowerCase()} ${r}`; }).join(", ");
+
+async function getJSON(url) {
+  const r = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  return r.json();
+}
+
+async function load() {
+  $("updated").textContent = "Updating…";
+  try {
+    const [s, h] = await Promise.all([getJSON("status.json"), getJSON("history.json").catch(() => null)]);
+    status = s;
+    history = ((h && h.rows) || []).map(r => ({ t: parseT(r[0]), atis: r[1], arr: split(r[2]), dep: split(r[3]), wd: r[4], ws: r[5] }));
+    history.sort((a, b) => a.t - b.t);
+    render();
+  } catch (e) {
+    $("updated").textContent = "Not updated";
+    if (!status) {
+      setHero("none", "No data yet", "No runway data yet",
+        "The background job hasn't saved a reading. Once it runs on GitHub, this page fills in by itself.");
+    }
+    showNotice(`Couldn't load the latest reading (${e.message}). Pull to refresh or tap Refresh.`);
+  }
+}
+
+function current() {
+  return { t: parseT(status.time), arr: status.landing || [], dep: status.departing || [] };
+}
+
+function setHero(kind, pill, title, sub) {
+  $("hero").className = "hero " + kind;
+  $("heroPill").textContent = pill;
+  $("heroTitle").textContent = title;
+  $("heroSub").textContent = sub;
+}
+
+function showNotice(text) { const n = $("notice"); n.textContent = text; n.hidden = !text; }
+
+function render() {
+  const cur = current();
+  const age = (Date.now() - cur.t) / 60000;
+  $("atis").hidden = !status.atis;
+  $("atis").textContent = "ATIS " + (status.atis || "");
+  $("updated").textContent = `${fmtTime(cur.t)} · ${age < 1.5 ? "just now" : fmtMin(age) + " ago"}`;
+
+  let note = "";
+  if (status.error && status.error_time && parseT(status.error_time) > cur.t) note = `The last check at ${fmtTime(parseT(status.error_time))} couldn't reach the ATIS feed. Showing the reading from ${fmtTime(cur.t)}.`;
+  else if (age > 40) note = `This reading is ${fmtMin(age)} old. GitHub's scheduler sometimes runs late; it should catch up.`;
+  showNotice(note);
+
+  const hits = hitsOf(cur);
+  const since = stateSince(cur, hits.length > 0);
+  const sinceTxt = since ? ` since ${since.toDateString() === new Date().toDateString() ? fmtTime(since) : fmtDay(since) + " " + fmtTime(since)}` : "";
+  if (!watched.size) setHero("none", "No runways picked", "Pick your runways", "Choose the runways that bring planes over the house below.");
+  else if (hits.length) setHero("alert", "Planes overhead" + sinceTxt, "Planes over the house", `Logan is ${describe(hits)}. Close the windows.`);
+  else setHero("quiet", "Quiet" + sinceTxt, "Quiet over the house", `None of your runways are in use. Watching ${describe(sortSpecs([...watched]))}.`);
+
+  renderChips($("landChips"), cur.arr, "land", "arr");
+  renderChips($("depChips"), cur.dep, "dep", "dep");
+  renderCompass(cur);
+  renderWind(cur);
+  renderRunwayToggles();
+  renderMarks();
+  renderStretches();
+  renderChart();
+  $("atisText").textContent = (status.texts || []).join("\n\n") || "No text in the last reading.";
+}
+
+function sortSpecs(specs) { return specs.sort((a, b) => order(a.split(":")[1]) - order(b.split(":")[1]) || a.localeCompare(b)); }
+
+function stateSince(cur, active) {
+  // Walk back through the history while the over-the-house state stayed the same.
+  let since = null, next = cur.t;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const e = history[i];
+    if (e.t > cur.t) continue;
+    if ((next - e.t) / 60000 > GAP_MIN || (hitsOf(e).length > 0) !== active) break;
+    since = e.t; next = e.t;
+  }
+  return since;
+}
+
+function renderChips(box, rwys, cls, use) {
+  box.replaceChildren();
+  if (!rwys.length) { box.append(el("span", "chip-none", "none announced")); return; }
+  for (const r of sortR(rwys)) {
+    const c = el("span", `chip ${cls}${watched.has(use + ":" + r) ? " yours" : ""}`, r);
+    c.title = watched.has(use + ":" + r) ? "One of your runways" : "";
+    box.append(c);
+  }
+}
+
+function renderCompass(cur) {
+  const C = 140, R = 92, rad = a => a * Math.PI / 180;
+  const pt = (a, r, off = 0) => [C + r * Math.sin(rad(a)) + off * Math.cos(rad(a)), C - r * Math.cos(rad(a)) + off * Math.sin(rad(a))];
+  const f = n => n.toFixed(1);
+  let s = `<defs>
+    <marker id="mLand" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--land-line)"/></marker>
+    <marker id="mDep" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--dep-line)"/></marker>
+    <marker id="mWind" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--accent)"/></marker></defs>`;
+  s += `<circle cx="${C}" cy="${C}" r="120" style="fill:none;stroke:var(--line)" stroke-width="1"/>`;
+  for (const [a, t] of [[0, "N"], [90, "E"], [180, "S"], [270, "W"]]) {
+    const [x, y] = pt(a, 131);
+    s += `<text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central" style="fill:var(--muted);font:600 10px var(--f-mono)">${t}</text>`;
+  }
+  const ends = {};
+  for (const [lo, hi, side, len] of PHYS) {
+    const h = heading(lo), off = side * 9, r = R * len;
+    const a = pt(h + 180, r, off), b = pt(h, r, off);
+    ends[lo] = [a, b]; ends[hi] = [b, a];
+    s += `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" style="stroke:var(--line)" stroke-width="7" stroke-linecap="round"/>`;
+    for (const [name, ang] of [[lo, h + 180], [hi, h]]) {
+      const [x, y] = pt(ang, r + 15, off);
+      const mine = watched.has("arr:" + name) || watched.has("dep:" + name);
+      s += `<text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central" style="fill:${mine ? "var(--sign-red)" : "var(--ink-2)"};font:${mine ? 700 : 500} 11px var(--f-mono)">${name}</text>`;
+    }
+  }
+  const draw = (rwy, kind) => {
+    if (!ends[rwy]) return;
+    const [a, b] = ends[rwy];
+    s += kind === "arr"
+      ? `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" style="stroke:var(--land-line)" stroke-width="7" stroke-linecap="round" marker-end="url(#mLand)"/>`
+      : `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(b[0])}" y2="${f(b[1])}" style="stroke:var(--dep-line)" stroke-width="3" stroke-dasharray="7 5" marker-end="url(#mDep)"/>`;
+  };
+  cur.arr.forEach(r => draw(r, "arr"));
+  cur.dep.forEach(r => draw(r, "dep"));
+  const w = status.wind;
+  if (w && w.dir != null && w.kt > 0) {
+    const [x1, y1] = pt(w.dir, 120), [x2, y2] = pt(w.dir, 34);
+    s += `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" style="stroke:var(--accent)" stroke-width="3" marker-end="url(#mWind)"/>`;
+  }
+  $("compass").innerHTML = s;
+}
+
+function renderWind(cur) {
+  const box = $("windLine"); box.replaceChildren();
+  const w = status.wind;
+  if (!w) { box.append(el("span", null, "Wind not reported in the last reading.")); return; }
+  const line = el("span");
+  const strong = el("strong", null, w.dir == null ? `Variable at ${w.kt} kt` : `From ${String(w.dir).padStart(3, "0")}° at ${w.kt} kt`);
+  line.append("Wind ", strong, w.gust ? `, gusts ${w.gust}` : "");
+  box.append(line);
+  if (w.dir != null && w.kt > 0) {
+    const parts = sortR(new Set([...cur.arr, ...cur.dep])).map(r => {
+      const head = w.kt * Math.cos((w.dir - heading(r)) * Math.PI / 180);
+      return `${r} ${head >= 0 ? "headwind" : "tailwind"} ${Math.abs(head).toFixed(0)}`;
+    });
+    if (parts.length) box.append(el("span", null, parts.join(" · ") + " kt"));
+  }
+  if (w.kt < 8 || w.dir == null) box.append(el("span", null, "Light wind: almost any runway works, so the tower tends to keep its current setup."));
+}
+
+function renderRunwayToggles() {
+  const body = $("rwyRows"); body.replaceChildren();
+  for (const r of RUNWAYS) {
+    const tr = el("tr"); tr.append(el("td", null, r));
+    for (const u of ["arr", "dep"]) {
+      const td = el("td"), b = el("button", "toggle", watched.has(`${u}:${r}`) ? `${NAMES[u]} ✓` : NAMES[u]);
+      b.type = "button"; b.id = `t-${u}-${r}`;
+      b.setAttribute("aria-pressed", watched.has(`${u}:${r}`));
+      b.setAttribute("aria-label", `${NAMES[u]} on runway ${r}`);
+      b.onclick = () => { const k = `${u}:${r}`; watched.has(k) ? watched.delete(k) : watched.add(k); store.set("lrw.watched", [...watched]); render(); };
+      td.append(b); tr.append(td);
+    }
+    body.append(tr);
+  }
+}
+
+function renderMarks() {
+  const box = $("marks"); box.replaceChildren();
+  const apply = $("applyMarks"); apply.hidden = true;
+  if (!marks.length) return;
+  const tally = {};
+  for (const m of marks) { for (const r of m.arr) tally["arr:" + r] = (tally["arr:" + r] || 0) + 1; for (const r of m.dep) tally["dep:" + r] = (tally["dep:" + r] || 0) + 1; }
+  const n = marks.length, rows = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  box.append(el("span", "label", `Runways in use across your ${n} tap${n === 1 ? "" : "s"}`));
+  for (const [spec, c] of rows) {
+    const [u, r] = spec.split(":"), row = el("div", "bar-row");
+    const track = el("div", "bar-track"), fill = el("div", "bar-fill"); fill.style.width = (100 * c / n) + "%"; track.append(fill);
+    row.append(el("span", null, `${u === "arr" ? "Land" : "Dep"} ${r}`), track, el("span", null, `${c}/${n}`));
+    box.append(row);
+  }
+  if (n >= 3) {
+    const top = rows[0][1], likely = rows.filter(([, c]) => c === top).map(([s]) => s);
+    apply.textContent = `Watch only ${describe(sortSpecs(likely))}`;
+    apply.hidden = false;
+    apply.onclick = () => { watched = new Set(likely); store.set("lrw.watched", likely); render(); };
+  } else box.append(el("p", "hint", "Tap a few more times, ideally on different days."));
+  const clear = el("button", "small-btn", "Clear taps"); clear.type = "button";
+  clear.onclick = () => { marks = []; store.set("lrw.marks", marks); renderMarks(); };
+  box.append(clear);
+}
+
+function stretches(days) {
+  const since = new Date(Date.now() - days * 864e5), out = [];
+  let cur = null;
+  for (const e of history) {
+    if (cur && (e.t - cur.last) / 60000 > GAP_MIN) { cur.end = cur.last; out.push(cur); cur = null; }
+    const hits = hitsOf(e);
+    if (hits.length) {
+      if (!cur) cur = { start: e.t, setups: new Set() };
+      cur.last = e.t;
+      cur.setups.add(`land ${sortR(e.arr).join(" ") || "–"} / depart ${sortR(e.dep).join(" ") || "–"}`);
+    } else if (cur) { cur.end = e.t; out.push(cur); cur = null; }
+  }
+  if (cur) { cur.end = cur.last; cur.ongoing = true; out.push(cur); }
+  return out.filter(s => s.end >= since).map(s => ({ ...s, start: s.start < since ? since : s.start }));
+}
+
+const isNight = d => d.getHours() >= 22 || d.getHours() < 7;
+function nightMinutes(a, b) { let m = 0; for (let t = a.getTime(); t < b.getTime(); t += 60000) if (isNight(new Date(t))) m++; return m; }
+
+function renderStretches() {
+  const box = $("stretches"); box.replaceChildren();
+  const list = stretches(7).reverse();
+  $("total").hidden = $("copyBtn").hidden = !list.length;
+  if (!list.length) { box.append(el("p", "empty", history.length ? "None in the last 7 days." : "Fills in as readings come in.")); return; }
+  let total = 0, night = 0, shown = 0;
+  const more = $("moreBtn");
+  more.hidden = list.length <= 4 || showAll;
+  more.textContent = `Show all ${list.length}`;
+  more.onclick = () => { showAll = true; renderStretches(); };
+  const lines = ["Logan aircraft noise over my home (times are local):", ""];
+  for (const s of list) {
+    const mins = (s.end - s.start) / 60000, n = nightMinutes(s.start, s.end);
+    total += mins; night += n;
+    const endTxt = s.ongoing ? "now" : (s.end.toDateString() === s.start.toDateString() ? fmtTime(s.end) : fmtDay(s.end) + " " + fmtTime(s.end));
+    const row = el("div", "stretch");
+    row.append(el("span", "when", `${fmtDay(s.start)}, ${fmtTime(s.start)} to ${endTxt}`), el("span", "len", mins ? fmtMin(mins) : "one check"),
+      el("span", "setup", [...s.setups].join("; ")));
+    if (n) row.append(el("span", "night", `${fmtMin(n)} between 10 pm and 7 am`));
+    if (showAll || shown++ < 4) box.append(row);
+    lines.push(`${fmtDay(s.start)}, ${fmtTime(s.start)} to ${endTxt} (${mins ? fmtMin(mins) : "one check"}): ${[...s.setups].join("; ")}${n ? `, ${fmtMin(n)} overnight` : ""}`);
+  }
+  $("total").textContent = `Total ${fmtMin(total)} over ${list.length} stretch${list.length === 1 ? "" : "es"}, ${fmtMin(night)} of it between 10 pm and 7 am.`;
+  lines.push("", `Total: ${fmtMin(total)}, including ${fmtMin(night)} between 10 pm and 7 am.`);
+  $("copyText").value = lines.join("\n");
+}
+
+$("copyBtn").onclick = () => {
+  const text = $("copyText").value, btn = $("copyBtn");
+  const done = msg => { btn.textContent = msg; setTimeout(() => btn.textContent = "Copy for a noise complaint", 2500); };
+  const fallback = () => { const t = $("copyText"); t.select(); try { document.execCommand("copy"); done("Copied"); } catch (e) { done("Couldn't copy"); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done("Copied"), fallback);
+  else fallback();
+};
+
+function renderChart() {
+  const since = Date.now() - 14 * 864e5, by = Array.from({ length: 24 }, () => [0, 0]);
+  for (const e of history) if (e.t >= since) { const b = by[e.t.getHours()]; b[1]++; if (hitsOf(e).length) b[0]++; }
+  const hours = by.filter(b => b[1]).length;
+  $("chartEmpty").hidden = hours >= 6;
+  $("chart").style.display = hours ? "" : "none";
+  if (!hours) return;
+  const X0 = 30, W = 306, Y0 = 10, H = 100, slot = W / 24, bw = slot - 2;
+  let s = "";
+  for (const p of [0, 50, 100]) {
+    const y = Y0 + H - H * p / 100;
+    s += `<line class="gridline" x1="${X0}" x2="${X0 + W}" y1="${y}" y2="${y}"/><text x="${X0 - 6}" y="${y}" text-anchor="end" dominant-baseline="central">${p}%</text>`;
+  }
+  by.forEach(([a, n], h) => {
+    const x = X0 + h * slot + 1;
+    if (n) {
+      const pct = a / n, bh = Math.max(pct * H, pct ? 2 : 0), y = Y0 + H - bh, r = Math.min(3, bh / 2, bw / 2);
+      if (bh > 0) s += `<path class="bar" d="M${x},${Y0 + H} V${y + r} Q${x},${y} ${x + r},${y} H${x + bw - r} Q${x + bw},${y} ${x + bw},${y + r} V${Y0 + H} Z"/>`;
+    }
+    s += `<rect class="hit" x="${x - 1}" y="${Y0}" width="${slot}" height="${H + 18}" data-h="${h}" data-a="${a}" data-n="${n}"/>`;
+  });
+  for (const h of [0, 6, 12, 18]) s += `<text x="${X0 + h * slot + slot / 2}" y="${Y0 + H + 14}" text-anchor="middle">${hourLabel(h)}</text>`;
+  const svg = $("chart"); svg.innerHTML = s;
+  const tip = $("tip"), box = $("chartBox");
+  const show = ev => {
+    const t = ev.target.closest(".hit"); if (!t) return;
+    const { h, a, n } = t.dataset, bb = t.getBoundingClientRect(), cb = box.getBoundingClientRect();
+    tip.textContent = +n ? `${hourLabel(+h)}–${hourLabel((+h + 1) % 24)}: planes overhead in ${Math.round(100 * a / n)}% of ${n} checks` : `${hourLabel(+h)}: no checks yet`;
+    tip.hidden = false;
+    const x = Math.min(Math.max(bb.left - cb.left + bb.width / 2, 90), cb.width - 90);
+    tip.style.left = x + "px"; tip.style.top = (bb.top - cb.top + 4) + "px";
+  };
+  svg.onpointerover = show; svg.onclick = show;
+  svg.onpointerleave = () => { tip.hidden = true; };
+}
+const hourLabel = h => h === 0 ? "12a" : h < 12 ? h + "a" : h === 12 ? "12p" : (h - 12) + "p";
+
+$("markBtn").onclick = () => {
+  if (!status) return;
+  const cur = current();
+  marks.push({ t: Date.now(), arr: cur.arr, dep: cur.dep });
+  store.set("lrw.marks", marks);
+  $("markBtn").textContent = "Saved";
+  setTimeout(() => $("markBtn").textContent = "They're loud now", 1800);
+  renderMarks();
+};
+$("refresh").onclick = load;
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+setInterval(() => { if (!document.hidden) load(); }, 120000);
+load();
+</script>
+</body>
+</html>

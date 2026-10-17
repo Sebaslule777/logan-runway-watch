@@ -1,0 +1,48 @@
+name: Check Logan runways
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: runway-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Logan's ATIS and update the app's data
+        env:
+          WATCH: ${{ vars.WATCH }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python3 update_site.py
+
+      - name: Save the history
+        run: |
+          git config user.name "runway-watch"
+          git config user.email "runway-watch@users.noreply.github.com"
+          git add site/status.json site/history.json
+          if ! git diff --cached --quiet; then
+            git commit -q -m "Update runway status"
+            git pull -q --rebase
+            git push -q
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
