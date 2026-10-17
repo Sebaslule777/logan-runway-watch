@@ -82,6 +82,15 @@ def main():
             lr.notify("Quiet again", f"Now landing {lr.fmt_rwys(status['landing'])}, "
                       f"departing {lr.fmt_rwys(status['departing'])}.", topic, desktop=False)
 
+    if os.environ.get("TEST_ALERT") == "true":
+        if topic:
+            state = "Planes over the house" if hits else "Quiet over the house"
+            lr.notify("Test alert", f"Logan Runway Watch is connected. Right now: {state}. "
+                      f"Landing {lr.fmt_rwys(status['landing'])}, departing {lr.fmt_rwys(status['departing'])}.",
+                      topic, desktop=False)
+        else:
+            print("Test alert skipped: the NTFY_TOPIC secret is not set.")
+
 
 if __name__ == "__main__":
     main()

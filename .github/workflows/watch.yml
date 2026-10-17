@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+    inputs:
+      test_alert:
+        description: Send a test alert to your phones
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -27,6 +32,7 @@ jobs:
         env:
           WATCH: ${{ vars.WATCH }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TEST_ALERT: ${{ inputs.test_alert }}
         run: python3 update_site.py
 
       - name: Save the history
